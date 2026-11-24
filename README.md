@@ -133,6 +133,14 @@ signs with a self-signed certificate, which it creates on the first build in its
 certificate can sign code only and is not trusted for anything else. `make unsign-identity` deletes
 it, and `SIGN=adhoc make app` builds without it.
 
+**If the toggle turns itself off:** an older build, signed differently, left a stale entry. macOS
+compares the running app with that entry, finds no match, and records "denied" again. Clear the entry,
+then allow LinkRoute once more:
+
+```sh
+tccutil reset SystemPolicyAppDataDetailed com.ephrin.linkroute
+```
+
 ## How it works
 
 LinkRoute registers for `http` and `https` URLs, so macOS can make it the default browser. For each link it:
