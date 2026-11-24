@@ -72,7 +72,9 @@ final class Router {
     func handle(_ url: URL, source: LinkSource? = nil) {
         reload()
         let force = Self.isHeld(config.pickerModifier)
-        switch decide(url: url, config: config, lastProfile: lastProfile, paused: paused, forcePicker: force) {
+        let decision = decide(url: url, config: config, lastProfile: lastProfile, paused: paused, forcePicker: force)
+        Self.log("link host=\(url.host() ?? "-") from=\(source?.name ?? "-") keys=\(Self.heldKeys()) force=\(force) -> \(decision)")
+        switch decision {
         case let .open(profile, rule):
             open(url, profile: profile, via: rule == nil ? .fallback : .rule)
         case let .ask(suggested):
@@ -86,9 +88,40 @@ final class Router {
         }
     }
 
+    /// Keys physically held now. Read from the window server's session state: NSEvent's
+    /// class-level flags go stale in a background menu bar app that gets no key events.
+    static func currentFlags() -> NSEvent.ModifierFlags {
+        let cg = CGEventSource.flagsState(.combinedSessionState)
+        var f: NSEvent.ModifierFlags = []
+        if cg.contains(.maskShift) { f.insert(.shift) }
+        if cg.contains(.maskAlternate) { f.insert(.option) }
+        if cg.contains(.maskControl) { f.insert(.control) }
+        if cg.contains(.maskCommand) { f.insert(.command) }
+        return f
+    }
+
+    static func heldKeys() -> String {
+        let f = currentFlags()
+        let names: [(NSEvent.ModifierFlags, String)] = [(.shift, "⇧"), (.option, "⌥"), (.control, "⌃"), (.command, "⌘")]
+        let held = names.filter { f.contains($0.0) }.map(\.1).joined()
+        return held.isEmpty ? "none" : held
+    }
+
+    /// One line per routed link in ~/Library/Logs/LinkRoute.log (host only, never the full URL).
+    static func log(_ line: String) {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/LinkRoute.log")
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        let data = Data("\(stamp) \(line)\n".utf8)
+        if let h = try? FileHandle(forWritingTo: url) {
+            h.seekToEndOfFile(); h.write(data); try? h.close()
+        } else {
+            try? data.write(to: url)
+        }
+    }
+
     /// Whether the picker key is down right now, i.e. while the link click is being delivered.
     static func isHeld(_ key: ModifierKey) -> Bool {
-        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = currentFlags()
         switch key {
         case .option: return flags.contains(.option)
         case .shift: return flags.contains(.shift)
