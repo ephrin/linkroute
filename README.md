@@ -116,19 +116,22 @@ shows a warning in the menu.
 
 LinkRoute reads Chrome's profile list from
 `~/Library/Application Support/Google/Chrome/Local State`. Recent macOS versions block one app from
-reading another app's data until you allow it. When that happens, the rules window shows a banner:
+reading another app's data until you allow it, once:
 
-1. Open **System Settings → Privacy & Security → Files & Folders**. The banner's button goes there.
-2. Allow **LinkRoute** to access data from other apps.
-3. Click **Reload** in the banner.
+1. Click **Grant Chrome Access…** in the menu, or **Open Privacy Settings** in the rules window.
+2. In **Privacy & Security → Files & Folders**, allow **LinkRoute** to access data from other apps.
+3. Return to LinkRoute. It checks again by itself, and the profile names appear.
 
-Or skip the setting: click **Choose Local State…** and pick the file. A file you choose in the open
-panel is readable even while the direct read is blocked. LinkRoute saves the profile list it reads to
-`~/.config/linkroute/profiles.json` and uses that list whenever the live read is blocked. If it has no
-list at all, it opens the rules window and the file panel by itself at launch.
+Until then you can type profile directories (`Profile 1`) by hand; routing works either way. LinkRoute
+also saves the last profile list it read to `~/.config/linkroute/profiles.json`, and uses that list
+whenever the live read is blocked.
 
-You can also type profile directories (`Profile 1`) by hand; routing works either way. An ad-hoc
-signed build gets a new code signature on every rebuild, so macOS may ask again after `make install`.
+**Why the grant survives rebuilds:** macOS ties the grant to the app's code signature. An ad-hoc
+signature changes with every build, so each build would look like a new app. `make app` therefore
+signs with a self-signed certificate, which it creates on the first build in its own keychain
+(`~/Library/Keychains/linkroute-signing.keychain-db`). Your login keychain is not touched. The
+certificate can sign code only and is not trusted for anything else. `make unsign-identity` deletes
+it, and `SIGN=adhoc make app` builds without it.
 
 ## How it works
 
@@ -147,6 +150,7 @@ Sources/
   LinkRoute/         the app: menu bar item, picker panel, rules window, icon drawing
   linkroute-tests/   behaviour tests for LinkRouteCore
 scripts/Info.plist   bundle metadata: URL schemes, LSUIElement
+scripts/sign.sh      stable local code signing
 Makefile             app, test, install, uninstall
 ```
 

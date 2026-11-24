@@ -62,15 +62,6 @@ final class Router {
         return result.profiles
     }
 
-    /// Read a Local State file the user picked in an open panel (allowed even when the
-    /// direct read is blocked) and cache its profiles. Returns false when it held none.
-    func importProfiles(from url: URL) -> Bool {
-        let result = profileReader.read(localState: try? Data(contentsOf: url))
-        guard result.source == .live else { return false }
-        profileSource = .live
-        return true
-    }
-
     func profileName(_ dir: String?) -> String {
         guard let dir else { return config.browser }
         return profiles().first { $0.directory == dir }?.name ?? dir

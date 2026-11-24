@@ -4,7 +4,7 @@ APP     := build/LinkRoute.app
 DEST    ?= $(HOME)/Applications
 LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
-.PHONY: all app test install uninstall clean
+.PHONY: all app test install uninstall clean unsign-identity
 
 all: app
 
@@ -19,7 +19,7 @@ app:
 	sed 's/__VERSION__/$(VERSION)/g' scripts/Info.plist > $(APP)/Contents/Info.plist
 	$(APP)/Contents/MacOS/LinkRoute --export-iconset build/AppIcon.iconset "$(GLYPH)"
 	iconutil -c icns build/AppIcon.iconset -o $(APP)/Contents/Resources/AppIcon.icns
-	codesign --force --sign - $(APP)
+	scripts/sign.sh $(APP)
 	@echo "built $(APP)"
 
 install: app
@@ -30,8 +30,6 @@ install: app
 	$(LSREGISTER) -f "$(DEST)/LinkRoute.app"
 	open "$(DEST)/LinkRoute.app"
 	@echo "installed $(DEST)/LinkRoute.app"
-	@echo "NOTE: new build = new signature. Re-allow LinkRoute in Privacy & Security > Files & Folders,"
-	@echo "      or use 'Choose Local State…' in the rules window. Cached profiles keep working meanwhile."
 
 uninstall:
 	-osascript -e 'tell application id "com.ephrin.linkroute" to quit' 2>/dev/null
@@ -40,3 +38,9 @@ uninstall:
 
 clean:
 	rm -rf build .build
+
+# Delete the local signing identity (scripts/sign.sh makes a new one on the next build;
+# macOS will then ask for the privacy grant once more).
+unsign-identity:
+	security delete-keychain "$(HOME)/Library/Keychains/linkroute-signing.keychain-db" || true
+	rm -f "$(HOME)/.config/linkroute/signing/keychain-password"

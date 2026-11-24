@@ -15,8 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         router.onChange = { [weak self] in self?.refreshIcon() }
         refreshIcon()
-        // Without any profile list (blocked read, empty cache) routing can't work: open the
-        // rules window, which asks for Chrome's Local State file.
+        // Without any profile list (blocked read, empty cache) open the rules window: its banner
+        // explains the one-time privacy grant.
         if router.profiles().isEmpty && router.profileSource == .none { openSettings() }
     }
 
@@ -50,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(warn)
         }
         if !isDefaultBrowser { menu.addItem(item("Make Default Browser", #selector(makeDefault))) }
+        _ = router.profiles()
+        if router.profileSource != .live { menu.addItem(item("Grant Chrome Access…", #selector(openPrivacySettings))) }
         menu.addItem(.separator())
 
         menu.addItem(disabled("Recent"))
@@ -120,6 +122,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func togglePause() { router.paused.toggle() }
+
+    /// Files & Folders, where "data from other apps" is granted.
+    @objc private func openPrivacySettings() {
+        if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
+            NSWorkspace.shared.open(u)
+        }
+    }
 
     @objc private func toggleLogin() {
         do {

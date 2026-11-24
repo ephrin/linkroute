@@ -28,24 +28,6 @@ final class SettingsModel: ObservableObject {
         profileSource = router.profileSource
     }
 
-    /// Ask for Chrome's Local State file; a file picked in the panel is readable even when
-    /// macOS blocks LinkRoute from reading other apps' data.
-    func chooseLocalState() {
-        let panel = NSOpenPanel()
-        panel.message = "Select Chrome's “Local State” file so LinkRoute can list your profiles."
-        panel.prompt = "Use This File"
-        panel.directoryURL = ChromeProfiles.localStateURL.deletingLastPathComponent()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        if router.importProfiles(from: url) {
-            reloadProfiles()
-            if profiles.isEmpty { error = "Could not read profiles from \(url.lastPathComponent)" }
-        } else {
-            error = "No Chrome profiles found in \(url.path)"
-        }
-    }
-
     var dirty: Bool { config != saved }
 
     func save() {
@@ -201,18 +183,16 @@ struct SettingsView: View {
         HStack(spacing: 8) {
             Image(systemName: "lock.trianglebadge.exclamationmark").foregroundStyle(.orange)
             Text(m.profileSource == .cache
-                 ? "Showing saved Chrome profiles: macOS blocks reading Chrome's live list. Choose its Local State file to refresh."
-                 : "Can't read Chrome's profile list. Choose its Local State file once, or allow LinkRoute under Privacy & Security → Files & Folders. You can also type directories such as Profile 1.")
+                 ? "Showing your saved Chrome profiles. To refresh them, allow LinkRoute to read Chrome's data: Privacy & Security → Files & Folders. This is needed only once."
+                 : "To list your Chrome profiles, allow LinkRoute to read Chrome's data: Privacy & Security → Files & Folders. This is needed only once. Until then, type profile directories such as Profile 1.")
                 .font(.callout).fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Button("Choose Local State…") { m.chooseLocalState() }
-                .buttonStyle(.borderedProminent)
-            Button("Privacy Settings") {
+            Button("Open Privacy Settings") {
                 if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
                     NSWorkspace.shared.open(u)
                 }
             }
-            Button("Reload") { m.reloadProfiles() }
+            .buttonStyle(.borderedProminent)
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
@@ -309,18 +289,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    private var autoPrompted = false
-
     func present() {
         if !(window?.isVisible ?? false) { model.revert() }
         NSApp.activate()
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
-        // No live list and nothing cached: ask for Local State right away, once per run.
-        if model.profileSource == .none && !autoPrompted {
-            autoPrompted = true
-            DispatchQueue.main.async { [model] in model.chooseLocalState() }
-        }
+    }
+
+    /// Coming back from System Settings: pick up a fresh grant without a reload button.
+    func windowDidBecomeKey(_ notification: Notification) {
+        if model.profileSource != .live { model.reloadProfiles() }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
