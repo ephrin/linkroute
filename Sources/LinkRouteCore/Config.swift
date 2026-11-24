@@ -73,7 +73,7 @@ public struct Config: Codable, Equatable, Sendable {
     public var rules: [Rule]
 
     public init(version: Int = 1, browser: String = "Google Chrome", icon: String = "⇢",
-                fallback: Fallback = Fallback(), pickerModifier: ModifierKey = .option, rules: [Rule] = []) {
+                fallback: Fallback = Fallback(), pickerModifier: ModifierKey = .shift, rules: [Rule] = []) {
         self.version = version; self.browser = browser; self.icon = icon
         self.fallback = fallback; self.pickerModifier = pickerModifier; self.rules = rules
     }

@@ -95,8 +95,8 @@ expect(decide(url: miss, config: cfg(.profile, profile: p2), lastProfile: nil, p
 expect(decide(url: miss, config: cfg(.lastUsed), lastProfile: p3, paused: false, forcePicker: true) == .ask(suggested: p3), "force suggests the last used profile")
 expect(decide(url: miss, config: cfg(.browser), lastProfile: p3, paused: false, forcePicker: true) == .ask(suggested: nil), "force with browser fallback suggests nothing")
 expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: false, forcePicker: false) == .open(profile: p1, rule: rules[0].id), "no force keeps the rule")
-expect(Config().pickerModifier == .option, "the force key defaults to Option")
-expect((try? JSONDecoder().decode(Config.self, from: Data(#"{"pickerModifier":"shift"}"#.utf8)))?.pickerModifier == .shift, "force key is read from the file")
+expect(Config().pickerModifier == .shift, "the force key defaults to Shift")
+expect((try? JSONDecoder().decode(Config.self, from: Data(#"{"pickerModifier":"option"}"#.utf8)))?.pickerModifier == .option, "force key is read from the file")
 expect((try? JSONDecoder().decode(Config.self, from: Data(#"{"pickerModifier":"none"}"#.utf8)))?.pickerModifier == ModifierKey.none, "force key can be off")
 
 // MARK: remembering a choice

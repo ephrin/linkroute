@@ -151,8 +151,8 @@ struct SettingsView: View {
                 HStack {
                     Text("Hold while clicking a link to choose anyway:")
                     Picker("", selection: $m.config.pickerModifier) {
-                        Text("⌥ Option").tag(ModifierKey.option)
                         Text("⇧ Shift").tag(ModifierKey.shift)
+                        Text("⌥ Option").tag(ModifierKey.option)
                         Text("⌃ Control").tag(ModifierKey.control)
                         Text("⌘ Command").tag(ModifierKey.command)
                         Text("Off").tag(ModifierKey.none)
