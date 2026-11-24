@@ -52,7 +52,24 @@ final class Router {
         onChange?()
     }
 
-    func profiles() -> [ChromeProfile] { ChromeProfiles.load() }
+    private let profileReader = ProfileReader(cache: .standard)
+    private(set) var profileSource: ProfileSource = .none
+
+    /// Chrome's profiles: live from Local State, or the cached list when macOS blocks the read.
+    func profiles() -> [ChromeProfile] {
+        let result = profileReader.read(localState: try? Data(contentsOf: ChromeProfiles.localStateURL))
+        profileSource = result.source
+        return result.profiles
+    }
+
+    /// Read a Local State file the user picked in an open panel (allowed even when the
+    /// direct read is blocked) and cache its profiles. Returns false when it held none.
+    func importProfiles(from url: URL) -> Bool {
+        let result = profileReader.read(localState: try? Data(contentsOf: url))
+        guard result.source == .live else { return false }
+        profileSource = .live
+        return true
+    }
 
     func profileName(_ dir: String?) -> String {
         guard let dir else { return config.browser }

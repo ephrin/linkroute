@@ -30,6 +30,8 @@ install: app
 	$(LSREGISTER) -f "$(DEST)/LinkRoute.app"
 	open "$(DEST)/LinkRoute.app"
 	@echo "installed $(DEST)/LinkRoute.app"
+	@echo "NOTE: new build = new signature. Re-allow LinkRoute in Privacy & Security > Files & Folders,"
+	@echo "      or use 'Choose Local State…' in the rules window. Cached profiles keep working meanwhile."
 
 uninstall:
 	-osascript -e 'tell application id "com.ephrin.linkroute" to quit' 2>/dev/null

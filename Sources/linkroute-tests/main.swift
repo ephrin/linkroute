@@ -130,6 +130,28 @@ expect(profiles.first?.name == "Work" && profiles.first?.email == nil, "empty em
 expect(profiles[1].email == "me@example.com", "email read from user_name")
 expect(ChromeProfiles.parse(Data("garbage".utf8)).isEmpty, "garbage gives no profiles")
 
+// MARK: profile cache
+
+let cacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("linkroute-cache-\(UUID().uuidString)")
+let cache = ProfileCache(url: cacheDir.appendingPathComponent("profiles.json"))
+expect(cache.load().isEmpty, "missing cache gives no profiles")
+do { try cache.save(profiles) } catch { expect(false, "cache save failed: \(error)") }
+expect(cache.load() == profiles, "cache round-trips profiles in order")
+let reader = ProfileReader(cache: cache)
+let fromLive = reader.read(localState: Data(localState.utf8))
+expect(fromLive.profiles == profiles && fromLive.source == .live, "readable Local State wins and is live")
+let fromCache = reader.read(localState: nil)
+expect(fromCache.profiles == profiles && fromCache.source == .cache, "unreadable Local State falls back to cache")
+try? FileManager.default.removeItem(at: cacheDir)
+let none = reader.read(localState: nil)
+expect(none.profiles.isEmpty && none.source == .none, "no Local State and no cache gives none")
+let fresh = ProfileReader(cache: ProfileCache(url: cacheDir.appendingPathComponent("p.json")))
+_ = fresh.read(localState: Data(localState.utf8))
+expect(fresh.read(localState: nil).source == .cache, "a live read refreshes the cache")
+_ = fresh.read(localState: Data("garbage".utf8))
+expect(fresh.read(localState: nil).profiles == profiles, "garbage Local State does not wipe the cache")
+try? FileManager.default.removeItem(at: cacheDir)
+
 // MARK: launch arguments
 
 expect(Launch.arguments(browser: "Google Chrome", profile: "Profile 1", url: u("https://a.com/x?y=1"))

@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         router.onChange = { [weak self] in self?.refreshIcon() }
         refreshIcon()
+        // Without any profile list (blocked read, empty cache) routing can't work: open the
+        // rules window, which asks for Chrome's Local State file.
+        if router.profiles().isEmpty && router.profileSource == .none { openSettings() }
     }
 
     /// Links arrive here when LinkRoute is the default browser (also on cold launch).

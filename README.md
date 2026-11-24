@@ -122,7 +122,12 @@ reading another app's data until you allow it. When that happens, the rules wind
 2. Allow **LinkRoute** to access data from other apps.
 3. Click **Reload** in the banner.
 
-Until then you can type profile directories (`Profile 1`) by hand; routing works either way. An ad-hoc
+Or skip the setting: click **Choose Local State…** and pick the file. A file you choose in the open
+panel is readable even while the direct read is blocked. LinkRoute saves the profile list it reads to
+`~/.config/linkroute/profiles.json` and uses that list whenever the live read is blocked. If it has no
+list at all, it opens the rules window and the file panel by itself at launch.
+
+You can also type profile directories (`Profile 1`) by hand; routing works either way. An ad-hoc
 signed build gets a new code signature on every rebuild, so macOS may ask again after `make install`.
 
 ## How it works

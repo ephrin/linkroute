@@ -17,7 +17,33 @@ final class SettingsModel: ObservableObject {
         config = router.config
         saved = router.config
         profiles = router.profiles()
+        profileSource = router.profileSource
         error = router.loadError
+    }
+
+    @Published var profileSource: ProfileSource = .none
+
+    func reloadProfiles() {
+        profiles = router.profiles()
+        profileSource = router.profileSource
+    }
+
+    /// Ask for Chrome's Local State file; a file picked in the panel is readable even when
+    /// macOS blocks LinkRoute from reading other apps' data.
+    func chooseLocalState() {
+        let panel = NSOpenPanel()
+        panel.message = "Select Chrome's “Local State” file so LinkRoute can list your profiles."
+        panel.prompt = "Use This File"
+        panel.directoryURL = ChromeProfiles.localStateURL.deletingLastPathComponent()
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if router.importProfiles(from: url) {
+            reloadProfiles()
+            if profiles.isEmpty { error = "Could not read profiles from \(url.lastPathComponent)" }
+        } else {
+            error = "No Chrome profiles found in \(url.path)"
+        }
     }
 
     var dirty: Bool { config != saved }
@@ -36,7 +62,7 @@ final class SettingsModel: ObservableObject {
         router.reload()
         config = router.config
         saved = router.config
-        profiles = router.profiles()
+        reloadProfiles()
         error = router.loadError
     }
 
@@ -76,7 +102,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if m.profiles.isEmpty { profileWarning }
+            if m.profileSource != .live { profileWarning }
             rules
             HStack(alignment: .top, spacing: 14) {
                 fallback
@@ -174,15 +200,19 @@ struct SettingsView: View {
     private var profileWarning: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock.trianglebadge.exclamationmark").foregroundStyle(.orange)
-            Text("Can't read Chrome's profile list. Allow LinkRoute under Privacy & Security → Files & Folders (data from other apps), then reload. Until then, type profile directories such as Profile 1.")
+            Text(m.profileSource == .cache
+                 ? "Showing saved Chrome profiles: macOS blocks reading Chrome's live list. Choose its Local State file to refresh."
+                 : "Can't read Chrome's profile list. Choose its Local State file once, or allow LinkRoute under Privacy & Security → Files & Folders. You can also type directories such as Profile 1.")
                 .font(.callout).fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Button("Open Settings") {
+            Button("Choose Local State…") { m.chooseLocalState() }
+                .buttonStyle(.borderedProminent)
+            Button("Privacy Settings") {
                 if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
                     NSWorkspace.shared.open(u)
                 }
             }
-            Button("Reload") { m.profiles = m.router.profiles() }
+            Button("Reload") { m.reloadProfiles() }
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange.opacity(0.12)))
@@ -279,11 +309,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private var autoPrompted = false
+
     func present() {
         if !(window?.isVisible ?? false) { model.revert() }
         NSApp.activate()
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
+        // No live list and nothing cached: ask for Local State right away, once per run.
+        if model.profileSource == .none && !autoPrompted {
+            autoPrompted = true
+            DispatchQueue.main.async { [model] in model.chooseLocalState() }
+        }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

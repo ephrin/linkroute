@@ -41,11 +41,13 @@ public enum Launch {
 }
 
 /// A Chrome profile as listed in Chrome's `Local State` file.
-public struct ChromeProfile: Equatable, Hashable, Identifiable, Sendable {
+public struct ChromeProfile: Codable, Equatable, Hashable, Identifiable, Sendable {
     public var directory: String
     public var name: String
     public var email: String?
     public var id: String { directory }
+
+    private enum CodingKeys: String, CodingKey { case directory, name, email }
 
     public init(directory: String, name: String, email: String?) {
         self.directory = directory; self.name = name; self.email = email
@@ -85,5 +87,49 @@ public enum ChromeProfiles {
             let email = (info["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             return ChromeProfile(directory: dir, name: name, email: email)
         }
+    }
+}
+
+/// Last profile list read from Chrome, kept so a later blocked read still shows names.
+public struct ProfileCache: Sendable {
+    public let url: URL
+    public init(url: URL) { self.url = url }
+
+    /// Next to the config file.
+    public static var standard: ProfileCache {
+        ProfileCache(url: ConfigStore.standard.url.deletingLastPathComponent().appendingPathComponent("profiles.json"))
+    }
+
+    public func load() -> [ChromeProfile] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([ChromeProfile].self, from: data)) ?? []
+    }
+
+    public func save(_ profiles: [ChromeProfile]) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.prettyPrinted]
+        try enc.encode(profiles).write(to: url, options: .atomic)
+    }
+}
+
+public enum ProfileSource: Sendable { case live, cache, none }
+
+/// Chrome's Local State when readable (refreshing the cache), else the cache.
+public struct ProfileReader: Sendable {
+    public let cache: ProfileCache
+    public init(cache: ProfileCache) { self.cache = cache }
+
+    /// `localState` nil means the file could not be read.
+    public func read(localState: Data?) -> (profiles: [ChromeProfile], source: ProfileSource) {
+        if let localState {
+            let live = ChromeProfiles.parse(localState)
+            if !live.isEmpty {
+                try? cache.save(live)
+                return (live, .live)
+            }
+        }
+        let cached = cache.load()
+        return (cached, cached.isEmpty ? .none : .cache)
     }
 }
