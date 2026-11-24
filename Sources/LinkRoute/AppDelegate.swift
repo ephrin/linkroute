@@ -79,6 +79,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(.separator())
 
+        let keyMenu = NSMenu()
+        let keys: [(ModifierKey, String)] = [(.shift, "⇧ Shift"), (.option, "⌥ Option"), (.control, "⌃ Control"),
+                                             (.command, "⌘ Command"), (.none, "Off")]
+        for (key, title) in keys {
+            let k = item(title, #selector(setPickerKey(_:)))
+            k.representedObject = key.rawValue
+            k.state = router.config.pickerModifier == key ? .on : .off
+            keyMenu.addItem(k)
+        }
+        let current = keys.first { $0.0 == router.config.pickerModifier }?.1 ?? "Off"
+        let keyItem = NSMenuItem(title: "Hold to Choose Profile: \(current)", action: nil, keyEquivalent: "")
+        keyItem.toolTip = "Hold this key while clicking a link to pick the profile even when a rule matches."
+        keyItem.submenu = keyMenu
+        menu.addItem(keyItem)
+
         let pause = item("Pause Routing", #selector(togglePause))
         pause.state = router.paused ? .on : .off
         menu.addItem(pause)
@@ -123,6 +138,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func togglePause() { router.paused.toggle() }
+
+    @objc private func setPickerKey(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let key = ModifierKey(rawValue: raw) else { return }
+        var c = router.config
+        c.pickerModifier = key
+        do { try router.save(c) } catch { alert("Could not save the config", error.localizedDescription) }
+    }
 
     /// Files & Folders, where "data from other apps" is granted.
     @objc private func openPrivacySettings() {

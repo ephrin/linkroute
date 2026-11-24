@@ -90,7 +90,8 @@ Choose what happens in the rules window, under **Links no rule matches**:
 **Choose anyway:** hold **⇧ Shift** while you click a link, and the picker opens even when a rule
 matches. The rule's profile is highlighted with a "rule" badge: Return keeps it, a number key picks
 another, and "Always open … here" saves the new choice as a rule. You can change the key (⇧, ⌥, ⌃, ⌘),
-or turn it off, under **Links no rule matches**. The default is Shift because ⌘- and ⌥-clicks often
+or turn it off, in the menu (**Hold to Choose Profile**), under **Links no rule matches**, or as
+`"pickerModifier"` in the config file. The default is Shift because ⌘- and ⌥-clicks often
 already do something in the app you click in.
 
 **The picker** shows which app sent the link, the link's host and path, and each profile with its
@@ -111,6 +112,7 @@ required; every other key has a default:
   "browser": "Google Chrome",
   "icon": "⇢",
   "fallback": { "mode": "ask", "profile": null, "rememberByDefault": false },
+  "pickerModifier": "shift",
   "rules": [
     { "pattern": "github.com/acme/**", "profile": "Profile 1" },
     { "pattern": "github.com", "profile": "Default" },
@@ -121,7 +123,8 @@ required; every other key has a default:
 
 `profile` is Chrome's profile **directory** (`Default`, `Profile 1`, …), not its display name. The rules
 window shows names and email addresses, and stores the directory. `fallback.mode` is one of `ask`,
-`profile`, `lastUsed` or `browser`. If the file is broken, LinkRoute keeps using the last good rules and
+`profile`, `lastUsed` or `browser`. `pickerModifier` is one of `shift`, `option`, `control`,
+`command` or `none`. If the file is broken, LinkRoute keeps using the last good rules and
 shows a warning in the menu.
 
 ## Permissions
