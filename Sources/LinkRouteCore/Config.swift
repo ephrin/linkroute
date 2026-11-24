@@ -56,6 +56,11 @@ public struct Fallback: Codable, Equatable, Sendable {
     }
 }
 
+/// Key held while clicking a link to get the picker even when a rule matches.
+public enum ModifierKey: String, Codable, CaseIterable, Sendable {
+    case option, shift, control, command, none
+}
+
 public struct Config: Codable, Equatable, Sendable {
     public var version: Int
     /// Application name passed to `open -a`.
@@ -63,12 +68,14 @@ public struct Config: Codable, Equatable, Sendable {
     /// The character drawn as the menu bar icon.
     public var icon: String
     public var fallback: Fallback
+    /// Hold while clicking a link to choose the profile anyway.
+    public var pickerModifier: ModifierKey
     public var rules: [Rule]
 
     public init(version: Int = 1, browser: String = "Google Chrome", icon: String = "⇢",
-                fallback: Fallback = Fallback(), rules: [Rule] = []) {
+                fallback: Fallback = Fallback(), pickerModifier: ModifierKey = .option, rules: [Rule] = []) {
         self.version = version; self.browser = browser; self.icon = icon
-        self.fallback = fallback; self.rules = rules
+        self.fallback = fallback; self.pickerModifier = pickerModifier; self.rules = rules
     }
 
     public init(from d: Decoder) throws {
@@ -78,6 +85,7 @@ public struct Config: Codable, Equatable, Sendable {
         browser = try c.decodeIfPresent(String.self, forKey: .browser) ?? def.browser
         icon = try c.decodeIfPresent(String.self, forKey: .icon) ?? def.icon
         fallback = try c.decodeIfPresent(Fallback.self, forKey: .fallback) ?? def.fallback
+        pickerModifier = try c.decodeIfPresent(ModifierKey.self, forKey: .pickerModifier) ?? def.pickerModifier
         rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
     }
 

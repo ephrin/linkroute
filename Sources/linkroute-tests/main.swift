@@ -79,13 +79,25 @@ func cfg(_ mode: FallbackMode, profile: String? = nil) -> Config {
 let hit = u("https://github.com/acme/x"), miss = u("https://example.org/")
 expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: false) == .open(profile: p1, rule: rules[0].id), "rule hit opens its profile")
 expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: true) == .openDefault, "paused bypasses rules")
-expect(decide(url: miss, config: cfg(.ask), lastProfile: nil, paused: false) == .ask, "miss + ask asks")
+expect(decide(url: miss, config: cfg(.ask), lastProfile: nil, paused: false) == .ask(suggested: nil), "miss + ask asks")
 expect(decide(url: miss, config: cfg(.profile, profile: p2), lastProfile: nil, paused: false) == .open(profile: p2, rule: nil), "miss + fixed profile")
 expect(decide(url: miss, config: cfg(.profile), lastProfile: nil, paused: false) == .openDefault, "miss + fixed profile unset → default")
 expect(decide(url: miss, config: cfg(.lastUsed), lastProfile: p3, paused: false) == .open(profile: p3, rule: nil), "miss + last used")
-expect(decide(url: miss, config: cfg(.lastUsed), lastProfile: nil, paused: false) == .ask, "miss + last used, none yet → ask")
+expect(decide(url: miss, config: cfg(.lastUsed), lastProfile: nil, paused: false) == .ask(suggested: nil), "miss + last used, none yet → ask")
 expect(decide(url: miss, config: cfg(.browser), lastProfile: p3, paused: false) == .openDefault, "miss + browser default")
 expect(decide(url: u("file:///tmp/a.html"), config: cfg(.profile, profile: p2), lastProfile: nil, paused: false) == .open(profile: p2, rule: nil), "file URL goes to fallback")
+
+// MARK: forcing the picker
+
+expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: false, forcePicker: true) == .ask(suggested: p1), "force on a rule hit asks, suggesting the rule's profile")
+expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: true, forcePicker: true) == .ask(suggested: p1), "force wins over pause")
+expect(decide(url: miss, config: cfg(.profile, profile: p2), lastProfile: nil, paused: false, forcePicker: true) == .ask(suggested: p2), "force on a miss suggests the fallback profile")
+expect(decide(url: miss, config: cfg(.lastUsed), lastProfile: p3, paused: false, forcePicker: true) == .ask(suggested: p3), "force suggests the last used profile")
+expect(decide(url: miss, config: cfg(.browser), lastProfile: p3, paused: false, forcePicker: true) == .ask(suggested: nil), "force with browser fallback suggests nothing")
+expect(decide(url: hit, config: cfg(.ask), lastProfile: nil, paused: false, forcePicker: false) == .open(profile: p1, rule: rules[0].id), "no force keeps the rule")
+expect(Config().pickerModifier == .option, "the force key defaults to Option")
+expect((try? JSONDecoder().decode(Config.self, from: Data(#"{"pickerModifier":"shift"}"#.utf8)))?.pickerModifier == .shift, "force key is read from the file")
+expect((try? JSONDecoder().decode(Config.self, from: Data(#"{"pickerModifier":"none"}"#.utf8)))?.pickerModifier == ModifierKey.none, "force key can be off")
 
 // MARK: remembering a choice
 
@@ -129,6 +141,35 @@ expect(profiles.map(\.directory) == ["Profile 2", "Default", "Profile 7"], "prof
 expect(profiles.first?.name == "Work" && profiles.first?.email == nil, "empty email becomes nil")
 expect(profiles[1].email == "me@example.com", "email read from user_name")
 expect(ChromeProfiles.parse(Data("garbage".utf8)).isEmpty, "garbage gives no profiles")
+
+// MARK: profile avatars
+
+let avatarState = #"""
+{"profile":{"info_cache":{
+  "Default":{"name":"Me","gaia_picture_file_name":"Google Profile Picture.png","is_using_default_avatar":true,
+             "default_avatar_fill_color":-13027015,"default_avatar_stroke_color":-1},
+  "Profile 1":{"name":"Chosen","gaia_picture_file_name":"Google Profile Picture.png","use_gaia_picture":false,
+             "default_avatar_fill_color":-14148577,"default_avatar_stroke_color":-2702652},
+  "Profile 2":{"name":"Gaia","gaia_picture_file_name":"Google Profile Picture.png","use_gaia_picture":true},
+  "Profile 3":{"name":"none"}}}}
+"""#
+let av = Dictionary(uniqueKeysWithValues: ChromeProfiles.parse(Data(avatarState.utf8)).map { ($0.directory, $0) })
+expect(av["Default"]?.picture == "Google Profile Picture.png", "default avatar + gaia picture shows the picture")
+expect(av["Profile 1"]?.picture == nil, "use_gaia_picture false hides the picture")
+expect(av["Profile 2"]?.picture == "Google Profile Picture.png", "use_gaia_picture true shows the picture")
+expect(av["Profile 3"]?.picture == nil, "no picture file, no picture")
+expect(av["Default"]?.fillColor == 0xFF39_3939 && av["Default"]?.strokeColor == 0xFFFF_FFFF, "signed ARGB ints become UInt32")
+expect(av["Profile 3"]?.fillColor == nil, "missing colors stay nil")
+expect(av["Profile 1"]?.initial == "C", "initial is the first letter of the name")
+expect(ChromeProfile(directory: "D", name: "володимир", email: nil).initial == "В", "initial is uppercased, any script")
+let avCache = ProfileCache(url: FileManager.default.temporaryDirectory.appendingPathComponent("lr-av-\(UUID().uuidString).json"))
+try? avCache.save(Array(av.values))
+expect(Set(avCache.load()) == Set(av.values), "avatar fields survive the cache")
+try? FileManager.default.removeItem(at: avCache.url)
+let oldCache = FileManager.default.temporaryDirectory.appendingPathComponent("lr-old-\(UUID().uuidString).json")
+try? Data(#"[{"directory":"Default","name":"Me","email":null}]"#.utf8).write(to: oldCache)
+expect(ProfileCache(url: oldCache).load().first?.name == "Me", "cache from an older version still loads")
+try? FileManager.default.removeItem(at: oldCache)
 
 // MARK: profile cache
 

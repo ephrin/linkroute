@@ -3,26 +3,39 @@ import Foundation
 public enum Decision: Equatable, Sendable {
     /// Open in this profile; `rule` is the matching rule, nil when it came from the fallback.
     case open(profile: String, rule: UUID?)
-    /// Show the profile picker.
-    case ask
+    /// Show the profile picker; `suggested` is the profile LinkRoute would have used.
+    case ask(suggested: String?)
     /// Hand the link to the browser without choosing a profile.
     case openDefault
 }
 
 /// Decide where a link goes. Pure: no I/O.
-public func decide(url: URL, config: Config, lastProfile: String?, paused: Bool) -> Decision {
+///
+/// `forcePicker` (the user held the picker key while clicking) turns any outcome into the
+/// picker, suggesting the profile that would have been used.
+public func decide(url: URL, config: Config, lastProfile: String?, paused: Bool,
+                   forcePicker: Bool = false) -> Decision {
+    let natural = route(url: url, config: config, lastProfile: lastProfile, paused: forcePicker ? false : paused)
+    guard forcePicker else { return natural }
+    switch natural {
+    case let .open(profile, _): return .ask(suggested: profile)
+    case .ask, .openDefault: return .ask(suggested: nil)
+    }
+}
+
+private func route(url: URL, config: Config, lastProfile: String?, paused: Bool) -> Decision {
     if paused { return .openDefault }
     if let rule = Rule.firstMatch(in: config.rules, for: url) {
         return .open(profile: rule.profile, rule: rule.id)
     }
     switch config.fallback.mode {
     case .ask:
-        return .ask
+        return .ask(suggested: nil)
     case .profile:
         guard let p = config.fallback.profile, !p.isEmpty else { return .openDefault }
         return .open(profile: p, rule: nil)
     case .lastUsed:
-        guard let p = lastProfile, !p.isEmpty else { return .ask }
+        guard let p = lastProfile, !p.isEmpty else { return .ask(suggested: nil) }
         return .open(profile: p, rule: nil)
     case .browser:
         return .openDefault
@@ -45,17 +58,29 @@ public struct ChromeProfile: Codable, Equatable, Hashable, Identifiable, Sendabl
     public var directory: String
     public var name: String
     public var email: String?
+    /// File name of the account picture inside the profile directory, when Chrome shows it.
+    public var picture: String?
+    /// Chrome's monogram colors, ARGB.
+    public var fillColor: UInt32?
+    public var strokeColor: UInt32?
     public var id: String { directory }
 
-    private enum CodingKeys: String, CodingKey { case directory, name, email }
+    private enum CodingKeys: String, CodingKey { case directory, name, email, picture, fillColor, strokeColor }
 
-    public init(directory: String, name: String, email: String?) {
+    public init(directory: String, name: String, email: String?,
+                picture: String? = nil, fillColor: UInt32? = nil, strokeColor: UInt32? = nil) {
         self.directory = directory; self.name = name; self.email = email
+        self.picture = picture; self.fillColor = fillColor; self.strokeColor = strokeColor
     }
 
     public var label: String {
         if let email { return "\(name) — \(email)" }
         return name
+    }
+
+    /// First letter of the name, uppercased, for a monogram avatar.
+    public var initial: String {
+        name.first.map { String($0).uppercased() } ?? "?"
     }
 }
 
@@ -68,6 +93,12 @@ public enum ChromeProfiles {
     public static func load(from url: URL = localStateURL) -> [ChromeProfile] {
         guard let data = try? Data(contentsOf: url) else { return [] }
         return parse(data)
+    }
+
+    /// Chrome stores colors as signed 32-bit ARGB integers.
+    static func argb(_ v: Any?) -> UInt32? {
+        guard let n = v as? NSNumber else { return nil }
+        return UInt32(truncatingIfNeeded: n.int64Value)
     }
 
     /// Profiles in Chrome's own order (`profiles_order`), then any others by directory name.
@@ -85,7 +116,12 @@ public enum ChromeProfiles {
             let info = cache[dir] as? [String: Any] ?? [:]
             let name = (info["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? dir
             let email = (info["user_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            return ChromeProfile(directory: dir, name: name, email: email)
+            // Chrome shows the account picture unless the user picked a built-in avatar.
+            let file = (info["gaia_picture_file_name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            let picture = (info["use_gaia_picture"] as? Bool) == false ? nil : file
+            return ChromeProfile(directory: dir, name: name, email: email, picture: picture,
+                                 fillColor: argb(info["default_avatar_fill_color"]),
+                                 strokeColor: argb(info["default_avatar_stroke_color"]))
         }
     }
 }

@@ -22,7 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Links arrive here when LinkRoute is the default browser (also on cold launch).
     func application(_ application: NSApplication, open urls: [URL]) {
-        urls.forEach(router.handle)
+        let source = LinkSource.current()
+        for url in urls { router.handle(url, source: source) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

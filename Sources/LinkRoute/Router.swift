@@ -69,15 +69,32 @@ final class Router {
 
     // MARK: routing
 
-    func handle(_ url: URL) {
+    func handle(_ url: URL, source: LinkSource? = nil) {
         reload()
-        switch decide(url: url, config: config, lastProfile: lastProfile, paused: paused) {
+        let force = Self.isHeld(config.pickerModifier)
+        switch decide(url: url, config: config, lastProfile: lastProfile, paused: paused, forcePicker: force) {
         case let .open(profile, rule):
             open(url, profile: profile, via: rule == nil ? .fallback : .rule)
-        case .ask:
-            if profiles().isEmpty { open(url, profile: nil, via: .fallback) } else { picker.enqueue(url) }
+        case let .ask(suggested):
+            if profiles().isEmpty {
+                open(url, profile: nil, via: .fallback)
+            } else {
+                picker.enqueue(url, source: source, suggested: suggested)
+            }
         case .openDefault:
             open(url, profile: nil, via: paused ? .paused : .fallback)
+        }
+    }
+
+    /// Whether the picker key is down right now, i.e. while the link click is being delivered.
+    static func isHeld(_ key: ModifierKey) -> Bool {
+        let flags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        switch key {
+        case .option: return flags.contains(.option)
+        case .shift: return flags.contains(.shift)
+        case .control: return flags.contains(.control)
+        case .command: return flags.contains(.command)
+        case .none: return false
         }
     }
 

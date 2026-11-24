@@ -19,7 +19,8 @@ rule matches gets a small picker at the mouse pointer. Press a number key to cho
 
 - **Menu bar only.** No Dock icon. The icon is any character you like: an arrow, a symbol, a Nerd Font glyph, an emoji.
 - **Host and path rules.** `github.com/acme/**` goes to Work and the rest of `github.com` to Personal.
-- **Picker for unknown links**, with number-key shortcuts and a "remember" checkbox.
+- **Picker for unknown links**, with Chrome avatars, number-key shortcuts and a "remember" checkbox.
+- **Hold ⌥ while clicking** to choose the profile even when a rule matches.
 - **Settings for unmatched links:** ask, a fixed profile, the profile used last, or let Chrome decide.
 - **Live link tester** in the rules window, which shows which rule wins before you save.
 - **Recent links** in the menu, each with "open in …" and "always open in …".
@@ -85,6 +86,17 @@ Choose what happens in the rules window, under **Links no rule matches**:
 | **Fixed profile** | Opens in the profile you choose. |
 | **Profile used last** | Opens in the profile LinkRoute opened last, and asks if there is none yet. |
 | **Let Chrome decide** | Hands the link to Chrome without a profile, so it opens in Chrome's last active window. |
+
+**Choose anyway:** hold **⌥ Option** while you click a link, and the picker opens even when a rule
+matches. The rule's profile is highlighted with a "rule" badge: Return keeps it, a number key picks
+another, and "Always open … here" saves the new choice as a rule. You can change the key, or turn it
+off, under **Links no rule matches**. Some apps give ⌥-click a meaning of their own; if a link doesn't
+reach LinkRoute that way, use ⇧ instead.
+
+**The picker** shows which app sent the link, the link's host and path, and each profile with its
+Chrome avatar: the account picture, or a monogram in the profile's colors. It uses Liquid Glass on
+macOS 26 and later. LinkRoute keeps copies of the avatars in `~/.config/linkroute/avatars/`, in case
+reading Chrome's data is blocked later.
 
 **Pause Routing** in the menu bypasses all rules until you turn it off.
 

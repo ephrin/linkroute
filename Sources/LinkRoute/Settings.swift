@@ -147,6 +147,19 @@ struct SettingsView: View {
                 }
                 Toggle("Picker: “Always open this way” ticked by default", isOn: $m.config.fallback.rememberByDefault)
                     .toggleStyle(.checkbox)
+                Divider()
+                HStack {
+                    Text("Hold while clicking a link to choose anyway:")
+                    Picker("", selection: $m.config.pickerModifier) {
+                        Text("⌥ Option").tag(ModifierKey.option)
+                        Text("⇧ Shift").tag(ModifierKey.shift)
+                        Text("⌃ Control").tag(ModifierKey.control)
+                        Text("⌘ Command").tag(ModifierKey.command)
+                        Text("Off").tag(ModifierKey.none)
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                .help("The picker opens even when a rule matches, with the rule's profile highlighted.")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(6)
@@ -259,7 +272,10 @@ private struct ProfilePicker: View {
 
     private var menu: some View {
         Picker("", selection: $selection) {
-            ForEach(profiles) { Text($0.label).tag($0.directory) }
+            ForEach(profiles) { p in
+                Label { Text(p.label) } icon: { Image(nsImage: Avatars.image(for: p, size: 16)) }
+                    .tag(p.directory)
+            }
             if !profiles.contains(where: { $0.directory == selection }) {
                 Text("\(selection) (not found)").tag(selection)
             }
